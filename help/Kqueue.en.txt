@@ -1,0 +1,55 @@
+https://man.freebsd.org/cgi/man.cgi?kqueue#:~:text=The%20kqueue()%20system%20call%20creates%20a%20new%20kernel%20event,the%20kqueue%20between%20two%20processes.
+
+int kqueue(void);
+Kqueue is a powerful system call for efficient I/O event handling, and it can be used in
+web servers to handle multiple connections and I/O operations concurrently.
+		Accepting new connections: When a client connects to your server, you can use kqueue to
+	monitor the listening socket for incoming connections. When a new connection is established,
+	you can add it to the kqueue to monitor read and write events.
+		Handling I/O operations: Once you have accepted a connection, you can use kqueue to monitor
+	read and write events on the socket. When data is available for reading, you can use kqueue
+	to signal the availability of the data and read it from the socket. Similarly, when data is
+	ready for writing, you can use kqueue to signal the availability of the socket for writing
+	and write the data to the socket.
+		Managing timeouts: In a web server, it's common to set timeouts for requests to prevent
+	connections from being held open indefinitely. You can use kqueue to monitor events related
+	to timeouts and implement a mechanism to close idle connections.
+
+1-we create a socket and bind it to a port
+2-we create a kqueue and add the listening socket to it
+3-we enter an event loop that waits for events on the kqueue
+
+EV_SET(kev, ident,	filter,	flags, fflags, data, udata);
+In the kqueue API, EV_SET is a macro that simplifies the process of creating and modifying a kevent
+struct. It takes six arguments:
+	kev: a pointer to a kevent struct that will be modified.
+	ident: the identifier for the event source, such as a file descriptor or socket.
+	filter: the type of event to monitor, such as read, write, or timer events.
+	flags: flags that modify the behavior of the kevent, such as adding or deleting the event from the kqueue.
+	fflags: a filter-specific flag that provides additional information about the event.
+	data: a filter-specific value that provides additional information about the event.
+
+	EVFILT_READ is a filter that monitors a file descriptor for read events. When an event occurs, the kqueue
+	will return the corresponding kevent struct to the calling process.
+	EV_ADD is a flag that tells kqueue to add the specified event to the set of events being monitored for the given
+	file descriptor.
+
+int kevent(int	kq, const struct kevent	*changelist, int nchanges, struct	kevent *eventlist, int nevents, const struct timespec *timeout);
+The kqueue system call creates a new kernel object, called a kqueue, that allows your application to efficiently
+monitor a set of file descriptors or other types of events for readiness or completion. However, just creating a
+kqueue does not provide any functionality on its own; you need to use the kevent function to register events that
+you want to monitor and receive notifications about.
+	kq parameter is the file descriptor of the kqueue that you want to monitor.
+	changelist parameter is a pointer to an array of struct kevent structures that describe the changes that you want to make to the kqueue.
+	nchanges parameter is the number of changes in the changelist array.
+	eventlist parameter is a pointer to an array of struct kevent structures that will be used to store the events that have occurred.
+	nevents parameter is the maximum number of events that can be stored in the eventlist array.
+	timeout parameter is a pointer to a struct timespec that specifies the amount of time that the kevent function should wait for events
+	to occur before returning. If timeout is NULL, then kevent will block indefinitely until at least one event occurs. If timeout is
+	non-NULL, then kevent will return after the specified time has elapsed, even if no events have occurred
+	
+	First call to kevent() is used to register the listening sockets with the kqueue. This allows the server to receive notifications from the kqueue
+	when there is incoming network traffic on the listening sockets. This call is made only once, during initialization.
+	Second call to kevent() is the main event loop of the server. It is used to retrieve the events that have occurred on the file descriptors registered
+	with the kqueue. In this loop, the server waits for events on the registered sockets and processes them accordingly. This call is made repeatedly in
+	a loop while the server is running.
